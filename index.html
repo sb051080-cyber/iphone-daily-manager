@@ -44,23 +44,21 @@ button{
   border:1px solid var(--line);border-radius:12px;font-size:17px
 }
 input[type=checkbox]{width:24px;height:24px}
-.category-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.catbtn{background:#eef2f7;border:2px solid transparent}
-.catbtn.active{background:var(--soft);border-color:var(--accent);color:#1d4ed8}
-.plan-item,.todo-item,.food-item{
+.todo-item,.food-item,.history-item,.shopping-item{
   border-top:1px solid #edf0f3;padding:12px 0;
   display:flex;align-items:flex-start;justify-content:space-between;gap:10px
 }
 .item-main{min-width:0;flex:1}.item-title{font-size:17px;word-break:break-word}
 .meta{font-size:13px;color:var(--muted);margin-top:3px}
-.smallbtn{min-height:40px;font-size:14px;padding:8px 10px}.done{text-decoration:line-through;color:var(--muted)}
+.smallbtn{min-height:40px;font-size:14px;padding:8px 10px}
 .todo-add{display:grid;gap:8px}.status{font-size:13px;color:var(--good);min-height:18px;margin-top:7px}
 .inline{display:grid;grid-template-columns:1fr auto;gap:8px}
 .food-photo{width:92px;height:92px;object-fit:cover;border-radius:12px;border:1px solid #e5e7eb}
 .food-left{display:flex;gap:10px;min-width:0;flex:1}
 .note{background:#f8fafc;border-radius:12px;padding:10px;font-size:14px;color:#374151;margin-top:8px}
 .section-note{font-size:13px;color:var(--muted);margin-top:-4px;margin-bottom:10px}
-details{margin-top:10px}
+.btnrow{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.topdate{display:grid;grid-template-columns:1fr auto;gap:8px}
 @media(max-width:390px){.grid3{grid-template-columns:1fr}}
 </style>
 </head>
@@ -70,6 +68,15 @@ details{margin-top:10px}
     <h1>毎日の管理</h1>
     <div id="todayLabel" class="date"></div>
   </div>
+
+  <section class="card">
+    <h2>表示する日</h2>
+    <div class="topdate">
+      <input id="viewDate" type="date">
+      <button class="secondary" onclick="goToday()">今日</button>
+    </div>
+    <div class="section-note" style="margin-top:8px">過去の日付を選ぶと、その日の記録を見て修正できます。</div>
+  </section>
 
   <section class="card">
     <h2>今日の世話人さん</h2>
@@ -83,30 +90,13 @@ details{margin-top:10px}
   </section>
 
   <section class="card">
-    <h2>今日の予定</h2>
-    <div class="category-row" id="todayCats"></div>
-    <input id="todayPlanText" type="text" placeholder="予定を入力" style="margin-top:8px">
-    <button class="primary save" onclick="addPlan('today')">今日の予定に追加</button>
-    <div id="todayPlans" style="margin-top:8px"></div>
-  </section>
-
-  <section class="card">
-    <h2>明日の予定</h2>
-    <div class="category-row" id="tomorrowCats"></div>
-    <input id="tomorrowPlanText" type="text" placeholder="明日の予定を入力" style="margin-top:8px">
-    <button class="primary save" onclick="addPlan('tomorrow')">明日の予定に追加</button>
-    <div id="tomorrowPlans" style="margin-top:8px"></div>
-  </section>
-
-  <section class="card">
     <h2>訪問看護</h2>
-    <div class="section-note">看護師さんの名前を選んで記録できます。</div>
     <div class="inline">
       <select id="nurseSelect"></select>
       <button class="secondary" onclick="addNurseName()">名前追加</button>
     </div>
     <textarea id="nurseMemo" placeholder="一言メモ（任意）" style="margin-top:8px"></textarea>
-    <button class="primary save" onclick="saveNurse()">今日の訪問看護を保存</button>
+    <button class="primary save" onclick="saveNurse()">保存</button>
     <div id="nurseStatus" class="status"></div>
   </section>
 
@@ -122,12 +112,13 @@ details{margin-top:10px}
   </section>
 
   <section class="card">
-    <h2>血圧・脈拍</h2>
+    <h2>血圧・脈拍・体重</h2>
     <div class="grid3">
       <input id="bpHigh" type="number" inputmode="numeric" placeholder="上">
       <input id="bpLow" type="number" inputmode="numeric" placeholder="下">
       <input id="pulse" type="number" inputmode="numeric" placeholder="脈拍">
     </div>
+    <input id="weight" type="number" inputmode="decimal" step="0.1" placeholder="体重 kg" style="margin-top:8px">
     <button class="primary save" onclick="saveDaily()">保存</button>
   </section>
 
@@ -146,55 +137,88 @@ details{margin-top:10px}
 
   <section class="card">
     <h2>食事記録</h2>
-    <div class="section-note">写真＋一言メモだけ。後から削除できます。</div>
+    <div class="section-note">写真＋一言メモ。選んでいる日付に保存します。</div>
     <select id="mealType">
       <option>朝食</option><option>昼食</option><option>夕食</option><option>間食</option>
     </select>
     <input id="foodPhoto" type="file" accept="image/*" capture="environment" style="margin-top:8px">
     <input id="foodMemo" type="text" placeholder="一言メモ" style="margin-top:8px">
     <button class="primary save" onclick="addFood()">食事を保存</button>
+    <button class="secondary save" onclick="openChatGPT()">ChatGPTで栄養を見る</button>
     <div id="foodList" style="margin-top:8px"></div>
   </section>
 
   <section class="card">
     <h2>To Do</h2>
     <div class="todo-add">
-      <input id="todoText" type="text" placeholder="例：洗濯する">
+      <input id="todoText" type="text" placeholder="やること">
+      <select id="todoCat">
+        <option>医療</option><option>福祉</option><option>生活</option><option>就労</option><option>私用</option>
+      </select>
       <input id="todoDate" type="date">
       <button class="primary" onclick="addTodo()">追加</button>
     </div>
     <div id="todoList" style="margin-top:8px"></div>
-    <details><summary>完了済みを見る</summary><div id="doneList"></div></details>
   </section>
 
   <section class="card">
-    <h2>今日のメモ</h2>
+    <h2>買い物リスト</h2>
+    <div class="inline">
+      <input id="shoppingText" type="text" placeholder="買う物">
+      <button class="primary" onclick="addShopping()">追加</button>
+    </div>
+    <div id="shoppingList" style="margin-top:8px"></div>
+  </section>
+
+  <section class="card">
+    <h2>メモ</h2>
     <textarea id="memo" placeholder="必要な時だけ入力"></textarea>
     <button class="primary save" onclick="saveDaily()">保存</button>
     <div id="status" class="status"></div>
   </section>
+
+  <section class="card">
+    <h2>履歴</h2>
+    <div class="section-note">記録はアプリ側では削除せず保存します。「開く」でその日を表示・修正できます。</div>
+    <div id="historyList"></div>
+  </section>
 </div>
 
 <script>
-const CATS=['医療','就労','福祉','生活','私用'];
-let selected={today:'医療',tomorrow:'医療'};
+const CATS=['医療','福祉','生活','就労','私用'];
 const pad=n=>String(n).padStart(2,'0');
 const fmt=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-const today=new Date(),tomorrow=new Date(today);tomorrow.setDate(today.getDate()+1);
-const todayKey=fmt(today),tomorrowKey=fmt(tomorrow);
+const today=new Date();
+const todayKey=fmt(today);
+let activeDate=todayKey;
+
 todayLabel.textContent=`${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
+viewDate.value=todayKey;
 todoDate.value=todayKey;
 
 function getDaily(date){return JSON.parse(localStorage.getItem('daily:'+date)||'{}')}
-function setDaily(date,obj){localStorage.setItem('daily:'+date,JSON.stringify(obj))}
+function setDaily(date,obj){localStorage.setItem('daily:'+date,JSON.stringify(obj));renderHistory()}
 function flash(id,text='保存しました'){const el=document.getElementById(id);el.textContent=text;setTimeout(()=>el.textContent='',1300)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+
+viewDate.addEventListener('change',()=>{
+  if(!viewDate.value)return;
+  activeDate=viewDate.value;
+  loadDate();
+});
+
+function goToday(){
+  activeDate=todayKey;
+  viewDate.value=activeDate;
+  loadDate();
+}
 
 function getNames(key){return JSON.parse(localStorage.getItem(key)||'[]')}
 function setNames(key,a){localStorage.setItem(key,JSON.stringify(a))}
 function fillNames(){
   const configs=[['caregiverNames','caregiverSelect','世話人さんを選択'],['nurseNames','nurseSelect','看護師さんを選択']];
   configs.forEach(([key,id,placeholder])=>{
-    const s=document.getElementById(id), cur=s.value, arr=getNames(key);
+    const s=document.getElementById(id),cur=s.value,arr=getNames(key);
     s.innerHTML=`<option value="">${placeholder}</option>`;
     arr.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;s.appendChild(o)});
     if(arr.includes(cur))s.value=cur;
@@ -203,92 +227,108 @@ function fillNames(){
 function promptAddName(key,label){
   const n=prompt(label+'の名前を入力してください');
   if(!n)return;
-  const arr=getNames(key);
-  if(!arr.includes(n.trim())){arr.push(n.trim());setNames(key,arr)}
+  const arr=getNames(key),v=n.trim();
+  if(v&&!arr.includes(v)){arr.push(v);setNames(key,arr)}
   fillNames();
 }
 function addCaregiverName(){promptAddName('caregiverNames','世話人さん')}
 function addNurseName(){promptAddName('nurseNames','看護師さん')}
 
 function saveCaregiver(){
-  const d=getDaily(todayKey);
+  const d=getDaily(activeDate);
   d.caregiver={name:caregiverSelect.value,memo:caregiverMemo.value};
-  setDaily(todayKey,d); flash('caregiverStatus');
+  setDaily(activeDate,d);flash('caregiverStatus')
 }
 function saveNurse(){
-  const d=getDaily(todayKey);
+  const d=getDaily(activeDate);
   d.nurse={name:nurseSelect.value,memo:nurseMemo.value};
-  setDaily(todayKey,d); flash('nurseStatus');
-}
-
-function renderCats(which){
-  const el=document.getElementById(which+'Cats');el.innerHTML='';
-  CATS.forEach(c=>{
-    const b=document.createElement('button');
-    b.className='catbtn'+(selected[which]===c?' active':'');b.textContent=c;
-    b.onclick=()=>{selected[which]=c;renderCats(which)};el.appendChild(b);
-  })
-}
-function getPlans(date){const d=getDaily(date);return Array.isArray(d.plans)?d.plans:[]}
-function savePlans(date,plans){const d=getDaily(date);d.plans=plans;setDaily(date,d)}
-function addPlan(which){
-  const date=which==='today'?todayKey:tomorrowKey;
-  const input=document.getElementById(which+'PlanText'),text=input.value.trim(); if(!text)return;
-  const plans=getPlans(date);plans.push({id:Date.now(),cat:selected[which],text});
-  savePlans(date,plans);input.value='';renderPlans(which)
-}
-function deletePlan(which,id){
-  const date=which==='today'?todayKey:tomorrowKey;
-  savePlans(date,getPlans(date).filter(x=>x.id!==id));renderPlans(which)
-}
-function renderPlans(which){
-  const date=which==='today'?todayKey:tomorrowKey, el=document.getElementById(which+'Plans'), plans=getPlans(date);
-  el.innerHTML='';
-  if(!plans.length){el.innerHTML='<div class="meta">予定はまだありません。</div>';return}
-  plans.forEach(x=>{
-    const div=document.createElement('div');div.className='plan-item';
-    div.innerHTML='<div class="item-main"><div class="item-title"></div><div class="meta"></div></div><button class="danger smallbtn">削除</button>';
-    div.querySelector('.item-title').textContent=x.text;div.querySelector('.meta').textContent=x.cat;
-    div.querySelector('button').onclick=()=>deletePlan(which,x.id);el.appendChild(div)
-  })
+  setDaily(activeDate,d);flash('nurseStatus')
 }
 
 function saveDaily(){
-  const d=getDaily(todayKey);
+  const d=getDaily(activeDate);
   Object.assign(d,{
     medMorning:medMorning.checked,medNoon:medNoon.checked,medEvening:medEvening.checked,medBed:medBed.checked,
-    bpHigh:bpHigh.value,bpLow:bpLow.value,pulse:pulse.value,bowel:bowel.value,bowelCount:bowelCount.value,memo:memo.value
+    bpHigh:bpHigh.value,bpLow:bpLow.value,pulse:pulse.value,weight:weight.value,
+    bowel:bowel.value,bowelCount:bowelCount.value,memo:memo.value
   });
-  setDaily(todayKey,d);flash('status')
+  setDaily(activeDate,d);flash('status')
 }
 
-function getTodos(){return JSON.parse(localStorage.getItem('todos')||'[]')}
+function loadDate(){
+  const d=getDaily(activeDate);
+  fillNames();
+  caregiverSelect.value=d.caregiver?.name||'';
+  caregiverMemo.value=d.caregiver?.memo||'';
+  nurseSelect.value=d.nurse?.name||'';
+  nurseMemo.value=d.nurse?.memo||'';
+  medMorning.checked=!!d.medMorning;medNoon.checked=!!d.medNoon;medEvening.checked=!!d.medEvening;medBed.checked=!!d.medBed;
+  bpHigh.value=d.bpHigh||'';bpLow.value=d.bpLow||'';pulse.value=d.pulse||'';weight.value=d.weight||'';
+  bowel.value=d.bowel||'';bowelCount.value=d.bowelCount||'';memo.value=d.memo||'';
+  renderFoods();
+}
+
+function getTodos(){
+  const a=JSON.parse(localStorage.getItem('todos')||'[]');
+  const clean=a.filter(x=>!x.done).map(x=>({...x,cat:CATS.includes(x.cat)?x.cat:'生活'}));
+  if(clean.length!==a.length||clean.some((x,i)=>x.cat!==a[i]?.cat))localStorage.setItem('todos',JSON.stringify(clean));
+  return clean;
+}
 function setTodos(a){localStorage.setItem('todos',JSON.stringify(a))}
 function addTodo(){
   const text=todoText.value.trim();if(!text)return;
-  const a=getTodos();a.push({id:Date.now(),text,due:todoDate.value||todayKey,done:false});
+  const a=getTodos();a.push({id:Date.now(),text,cat:todoCat.value,due:todoDate.value||todayKey});
   setTodos(a);todoText.value='';renderTodos()
 }
-function doneTodo(id){const a=getTodos(),x=a.find(t=>t.id===id);if(x)x.done=true;setTodos(a);renderTodos()}
-function restoreTodo(id){const a=getTodos(),x=a.find(t=>t.id===id);if(x)x.done=false;setTodos(a);renderTodos()}
+function completeTodo(id){setTodos(getTodos().filter(t=>t.id!==id));renderTodos()}
 function deleteTodo(id){setTodos(getTodos().filter(t=>t.id!==id));renderTodos()}
+function editTodo(id){
+  const a=getTodos(),x=a.find(t=>t.id===id);if(!x)return;
+  const t=prompt('内容を修正',x.text);if(t===null||!t.trim())return;
+  const c=prompt('分類（医療・福祉・生活・就労・私用）',x.cat);
+  const d=prompt('期限（YYYY-MM-DD）',x.due||'');
+  x.text=t.trim();
+  if(CATS.includes(c))x.cat=c;
+  if(d!==null)x.due=d.trim();
+  setTodos(a);renderTodos()
+}
 function renderTodos(){
-  const all=getTodos(),active=all.filter(x=>!x.done),done=all.filter(x=>x.done);todoList.innerHTML='';doneList.innerHTML='';
-  if(!active.length)todoList.innerHTML='<div class="meta">未完了のTo Doはありません。</div>';
-  active.forEach(x=>{
+  const all=getTodos().sort((a,b)=>(a.due||'9999-12-31').localeCompare(b.due||'9999-12-31'));
+  todoList.innerHTML='';
+  if(!all.length){todoList.innerHTML='<div class="meta">未完了のTo Doはありません。</div>';return}
+  all.forEach(x=>{
     const div=document.createElement('div');div.className='todo-item';
-    div.innerHTML='<div class="item-main"><div class="item-title"></div><div class="meta"></div></div><div><button class="secondary smallbtn">完了</button><button class="danger smallbtn" style="margin-top:6px">削除</button></div>';
-    div.querySelector('.item-title').textContent=x.text;div.querySelector('.meta').textContent='期限：'+x.due;
-    const bs=div.querySelectorAll('button');bs[0].onclick=()=>doneTodo(x.id);bs[1].onclick=()=>deleteTodo(x.id);todoList.appendChild(div)
-  });
-  if(!done.length)doneList.innerHTML='<div class="meta">完了履歴はありません。</div>';
-  done.forEach(x=>{
-    const div=document.createElement('div');div.className='todo-item';
-    div.innerHTML='<div class="item-main"><div class="item-title done"></div><div class="meta"></div></div><button class="secondary smallbtn">戻す</button>';
-    div.querySelector('.item-title').textContent=x.text;div.querySelector('.meta').textContent='期限：'+x.due;
-    div.querySelector('button').onclick=()=>restoreTodo(x.id);doneList.appendChild(div)
+    div.innerHTML='<div class="item-main"><div class="item-title"></div><div class="meta"></div></div><div class="btnrow"><button class="secondary smallbtn">完了</button><button class="secondary smallbtn">修正</button><button class="danger smallbtn">削除</button></div>';
+    div.querySelector('.item-title').textContent=x.text;
+    div.querySelector('.meta').textContent=`${x.cat}　期限：${x.due||'未設定'}`;
+    const bs=div.querySelectorAll('button');
+    bs[0].onclick=()=>completeTodo(x.id);bs[1].onclick=()=>editTodo(x.id);bs[2].onclick=()=>deleteTodo(x.id);
+    todoList.appendChild(div)
   })
 }
+
+function getShopping(){return JSON.parse(localStorage.getItem('shopping')||'[]')}
+function setShopping(a){localStorage.setItem('shopping',JSON.stringify(a))}
+function addShopping(){
+  const text=shoppingText.value.trim();if(!text)return;
+  const a=getShopping();a.push({id:Date.now(),text});setShopping(a);shoppingText.value='';renderShopping()
+}
+function boughtShopping(id){setShopping(getShopping().filter(x=>x.id!==id));renderShopping()}
+function deleteShopping(id){setShopping(getShopping().filter(x=>x.id!==id));renderShopping()}
+function renderShopping(){
+  const a=getShopping();shoppingList.innerHTML='';
+  if(!a.length){shoppingList.innerHTML='<div class="meta">買う物はありません。</div>';return}
+  a.forEach(x=>{
+    const div=document.createElement('div');div.className='shopping-item';
+    div.innerHTML='<label class="item-main check" style="border:0;padding:0;min-height:40px"><input type="checkbox"><span class="item-title"></span></label><button class="danger smallbtn">削除</button>';
+    div.querySelector('.item-title').textContent=x.text;
+    div.querySelector('input').onchange=()=>boughtShopping(x.id);
+    div.querySelector('button').onclick=()=>deleteShopping(x.id);
+    shoppingList.appendChild(div)
+  })
+}
+
+function openChatGPT(){window.open('https://chatgpt.com/','_blank')}
 
 /* IndexedDB for meal photos */
 let db;
@@ -297,48 +337,86 @@ dbReq.onupgradeneeded=e=>{
   db=e.target.result;
   if(!db.objectStoreNames.contains('foods'))db.createObjectStore('foods',{keyPath:'id'});
 };
-dbReq.onsuccess=e=>{db=e.target.result;renderFoods()};
+dbReq.onsuccess=e=>{db=e.target.result;renderFoods();renderHistory()};
 function addFood(){
   const file=foodPhoto.files[0];
   if(!file){alert('写真を選んでください');return}
   const reader=new FileReader();
   reader.onload=()=>{
-    const item={id:Date.now(),date:todayKey,time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}),meal:mealType.value,memo:foodMemo.value.trim(),photo:reader.result};
+    const item={id:Date.now(),date:activeDate,time:new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'}),meal:mealType.value,memo:foodMemo.value.trim(),photo:reader.result};
     const tx=db.transaction('foods','readwrite');tx.objectStore('foods').put(item);
-    tx.oncomplete=()=>{foodPhoto.value='';foodMemo.value='';renderFoods()}
+    tx.oncomplete=()=>{
+      if(!localStorage.getItem('daily:'+activeDate))setDaily(activeDate,{});
+      foodPhoto.value='';foodMemo.value='';renderFoods();renderHistory()
+    }
   };
   reader.readAsDataURL(file)
 }
 function deleteFood(id){
-  const tx=db.transaction('foods','readwrite');tx.objectStore('foods').delete(id);tx.oncomplete=renderFoods
+  const tx=db.transaction('foods','readwrite');tx.objectStore('foods').delete(id);tx.oncomplete=()=>{renderFoods();renderHistory()}
+}
+function editFood(id){
+  if(!db)return;
+  const tx=db.transaction('foods','readwrite'),store=tx.objectStore('foods'),req=store.get(id);
+  req.onsuccess=()=>{
+    const x=req.result;if(!x)return;
+    const meal=prompt('食事区分を修正',x.meal);if(meal===null)return;
+    const memo2=prompt('メモを修正',x.memo||'');if(memo2===null)return;
+    x.meal=meal.trim()||x.meal;x.memo=memo2.trim();store.put(x);
+  };
+  tx.oncomplete=renderFoods
 }
 function renderFoods(){
   if(!db)return;
-  const tx=db.transaction('foods','readonly'), req=tx.objectStore('foods').getAll();
+  const tx=db.transaction('foods','readonly'),req=tx.objectStore('foods').getAll();
   req.onsuccess=()=>{
-    const items=req.result.filter(x=>x.date===todayKey).sort((a,b)=>b.id-a.id);
+    const items=req.result.filter(x=>x.date===activeDate).sort((a,b)=>b.id-a.id);
     foodList.innerHTML='';
-    if(!items.length){foodList.innerHTML='<div class="meta">今日の食事記録はありません。</div>';return}
+    if(!items.length){foodList.innerHTML='<div class="meta">この日の食事記録はありません。</div>';return}
     items.forEach(x=>{
       const div=document.createElement('div');div.className='food-item';
-      div.innerHTML='<div class="food-left"><img class="food-photo"><div class="item-main"><div class="item-title"></div><div class="meta"></div><div class="note" style="display:none"></div></div></div><button class="danger smallbtn">削除</button>';
+      div.innerHTML='<div class="food-left"><img class="food-photo"><div class="item-main"><div class="item-title"></div><div class="meta"></div><div class="note" style="display:none"></div></div></div><div class="btnrow"><button class="secondary smallbtn">修正</button><button class="danger smallbtn">削除</button></div>';
       div.querySelector('img').src=x.photo;div.querySelector('.item-title').textContent=x.meal;
       div.querySelector('.meta').textContent=x.time;
       if(x.memo){const n=div.querySelector('.note');n.style.display='block';n.textContent=x.memo}
-      div.querySelector('button').onclick=()=>deleteFood(x.id);foodList.appendChild(div)
+      const bs=div.querySelectorAll('button');bs[0].onclick=()=>editFood(x.id);bs[1].onclick=()=>deleteFood(x.id);
+      foodList.appendChild(div)
     })
   }
 }
 
+function renderHistory(){
+  const dates=[];
+  for(let i=0;i<localStorage.length;i++){
+    const k=localStorage.key(i);
+    if(k&&k.startsWith('daily:'))dates.push(k.slice(6));
+  }
+  const unique=[...new Set(dates)].sort().reverse();
+  historyList.innerHTML='';
+  if(!unique.length){historyList.innerHTML='<div class="meta">まだ履歴はありません。</div>';return}
+  unique.forEach(date=>{
+    const d=getDaily(date),bits=[];
+    if(d.weight)bits.push(`体重 ${esc(d.weight)}kg`);
+    if(d.bpHigh||d.bpLow)bits.push(`血圧 ${esc(d.bpHigh||'-')}/${esc(d.bpLow||'-')}`);
+    if(d.caregiver?.name)bits.push(`世話人 ${esc(d.caregiver.name)}`);
+    if(d.nurse?.name)bits.push(`訪問看護 ${esc(d.nurse.name)}`);
+    const div=document.createElement('div');div.className='history-item';
+    div.innerHTML='<div class="item-main"><div class="item-title"></div><div class="meta"></div></div><button class="secondary smallbtn">開く</button>';
+    div.querySelector('.item-title').textContent=date;
+    div.querySelector('.meta').innerHTML=bits.length?bits.join('・'):'記録あり';
+    div.querySelector('button').onclick=()=>{
+      activeDate=date;viewDate.value=date;loadDate();window.scrollTo({top:0,behavior:'smooth'})
+    };
+    historyList.appendChild(div)
+  })
+}
+
 function load(){
-  const d=getDaily(todayKey);
-  medMorning.checked=!!d.medMorning;medNoon.checked=!!d.medNoon;medEvening.checked=!!d.medEvening;medBed.checked=!!d.medBed;
-  bpHigh.value=d.bpHigh||'';bpLow.value=d.bpLow||'';pulse.value=d.pulse||'';
-  bowel.value=d.bowel||'';bowelCount.value=d.bowelCount||'';memo.value=d.memo||'';
   fillNames();
-  if(d.caregiver){caregiverSelect.value=d.caregiver.name||'';caregiverMemo.value=d.caregiver.memo||''}
-  if(d.nurse){nurseSelect.value=d.nurse.name||'';nurseMemo.value=d.nurse.memo||''}
-  renderCats('today');renderCats('tomorrow');renderPlans('today');renderPlans('tomorrow');renderTodos()
+  renderTodos();
+  renderShopping();
+  renderHistory();
+  loadDate();
 }
 load();
 </script>
