@@ -44,9 +44,53 @@ button{
   border:1px solid var(--line);border-radius:12px;font-size:17px
 }
 input[type=checkbox]{width:24px;height:24px}
-.todo-item,.food-item,.history-item,.shopping-item{
+.todo-item,.food-item,.shopping-item{
   border-top:1px solid #edf0f3;padding:12px 0;
   display:flex;align-items:flex-start;justify-content:space-between;gap:10px
+}
+.history-card{padding-top:14px}
+.history-heading{
+  display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:4px
+}
+.history-heading h2{margin-bottom:6px}
+.history-heading .section-note{margin:0}
+.history-month{margin-top:16px}
+.history-month:first-child{margin-top:6px}
+.history-month-title{
+  position:sticky;top:0;z-index:2;
+  font-size:16px;font-weight:800;color:#374151;
+  margin:0 0 8px;padding:8px 10px;
+  background:#eef2f7;border-radius:10px
+}
+.history-item{
+  border:1px solid #dde3ea;border-radius:16px;padding:13px;margin:10px 0;
+  background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.035)
+}
+.history-top{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding-bottom:10px;border-bottom:1px solid #edf0f3
+}
+.history-date{font-size:20px;font-weight:800;line-height:1.25}
+.history-summary{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px
+}
+.history-field{
+  min-width:0;background:#f8fafc;border:1px solid #edf0f3;border-radius:11px;
+  padding:8px 10px
+}
+.history-label{
+  display:block;font-size:12px;font-weight:700;color:var(--muted);margin-bottom:2px
+}
+.history-value{
+  display:block;font-size:15px;font-weight:700;color:var(--text);
+  line-height:1.35;word-break:break-word
+}
+.history-memo{
+  margin-top:10px;background:#fff8e8;border:1px solid #f2dfb1;border-radius:11px;
+  padding:9px 10px;font-size:14px;line-height:1.55;white-space:pre-wrap;word-break:break-word
+}
+.history-empty{
+  padding:18px 10px;text-align:center;color:var(--muted);font-size:14px
 }
 .item-main{min-width:0;flex:1}.item-title{font-size:17px;word-break:break-word}
 .meta{font-size:13px;color:var(--muted);margin-top:3px}
@@ -59,7 +103,7 @@ input[type=checkbox]{width:24px;height:24px}
 .section-note{font-size:13px;color:var(--muted);margin-top:-4px;margin-bottom:10px}
 .btnrow{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
 .topdate{display:grid;grid-template-columns:1fr auto;gap:8px}
-@media(max-width:390px){.grid3{grid-template-columns:1fr}}
+@media(max-width:390px){.grid3{grid-template-columns:1fr}.history-summary{grid-template-columns:1fr}.history-heading{align-items:center}}
 </style>
 </head>
 <body>
@@ -67,6 +111,7 @@ input[type=checkbox]{width:24px;height:24px}
   <div class="header">
     <h1>毎日の管理</h1>
     <div id="todayLabel" class="date"></div>
+    <div class="meta">改訂版：予定機能なし／履歴保存／To Do分類・期限／買い物リスト／体重記録</div>
   </div>
 
   <section class="card">
@@ -76,6 +121,18 @@ input[type=checkbox]{width:24px;height:24px}
       <button class="secondary" onclick="goToday()">今日</button>
     </div>
     <div class="section-note" style="margin-top:8px">過去の日付を選ぶと、その日の記録を見て修正できます。</div>
+  </section>
+
+
+  <section class="card history-card">
+    <div class="history-heading">
+      <div>
+        <h2>履歴</h2>
+        <div class="section-note">新しい日から順に表示します。必要な日の「開く」で内容を確認・修正できます。</div>
+      </div>
+      <button id="historyToggleBtn" class="secondary smallbtn" onclick="toggleHistoryLimit()">すべて表示</button>
+    </div>
+    <div id="historyList"></div>
   </section>
 
   <section class="card">
@@ -176,12 +233,6 @@ input[type=checkbox]{width:24px;height:24px}
     <button class="primary save" onclick="saveDaily()">保存</button>
     <div id="status" class="status"></div>
   </section>
-
-  <section class="card">
-    <h2>履歴</h2>
-    <div class="section-note">記録はアプリ側では削除せず保存します。「開く」でその日を表示・修正できます。</div>
-    <div id="historyList"></div>
-  </section>
 </div>
 
 <script>
@@ -204,12 +255,14 @@ function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&l
 viewDate.addEventListener('change',()=>{
   if(!viewDate.value)return;
   activeDate=viewDate.value;
+  todoDate.value=activeDate;
   loadDate();
 });
 
 function goToday(){
   activeDate=todayKey;
   viewDate.value=activeDate;
+  todoDate.value=activeDate;
   loadDate();
 }
 
@@ -285,11 +338,14 @@ function deleteTodo(id){setTodos(getTodos().filter(t=>t.id!==id));renderTodos()}
 function editTodo(id){
   const a=getTodos(),x=a.find(t=>t.id===id);if(!x)return;
   const t=prompt('内容を修正',x.text);if(t===null||!t.trim())return;
-  const c=prompt('分類（医療・福祉・生活・就労・私用）',x.cat);
-  const d=prompt('期限（YYYY-MM-DD）',x.due||'');
   x.text=t.trim();
-  if(CATS.includes(c))x.cat=c;
-  if(d!==null)x.due=d.trim();
+
+  const c=prompt('分類を入力：医療・福祉・生活・就労・私用',x.cat);
+  if(c!==null && CATS.includes(c.trim()))x.cat=c.trim();
+
+  const d=prompt('期限を入力（YYYY-MM-DD）',x.due||'');
+  if(d!==null && /^\d{4}-\d{2}-\d{2}$/.test(d.trim()))x.due=d.trim();
+
   setTodos(a);renderTodos()
 }
 function renderTodos(){
@@ -314,16 +370,23 @@ function addShopping(){
   const a=getShopping();a.push({id:Date.now(),text});setShopping(a);shoppingText.value='';renderShopping()
 }
 function boughtShopping(id){setShopping(getShopping().filter(x=>x.id!==id));renderShopping()}
+function editShopping(id){
+  const a=getShopping(),x=a.find(v=>v.id===id);if(!x)return;
+  const t=prompt('買う物を修正',x.text);if(t===null||!t.trim())return;
+  x.text=t.trim();setShopping(a);renderShopping()
+}
 function deleteShopping(id){setShopping(getShopping().filter(x=>x.id!==id));renderShopping()}
 function renderShopping(){
   const a=getShopping();shoppingList.innerHTML='';
   if(!a.length){shoppingList.innerHTML='<div class="meta">買う物はありません。</div>';return}
   a.forEach(x=>{
     const div=document.createElement('div');div.className='shopping-item';
-    div.innerHTML='<label class="item-main check" style="border:0;padding:0;min-height:40px"><input type="checkbox"><span class="item-title"></span></label><button class="danger smallbtn">削除</button>';
+    div.innerHTML='<label class="item-main check" style="border:0;padding:0;min-height:40px"><input type="checkbox"><span class="item-title"></span></label><div class="btnrow"><button class="secondary smallbtn">修正</button><button class="danger smallbtn">削除</button></div>';
     div.querySelector('.item-title').textContent=x.text;
     div.querySelector('input').onchange=()=>boughtShopping(x.id);
-    div.querySelector('button').onclick=()=>deleteShopping(x.id);
+    const bs=div.querySelectorAll('button');
+    bs[0].onclick=()=>editShopping(x.id);
+    bs[1].onclick=()=>deleteShopping(x.id);
     shoppingList.appendChild(div)
   })
 }
@@ -385,30 +448,169 @@ function renderFoods(){
   }
 }
 
+let historyShowAll=false;
+
+function toggleHistoryLimit(){
+  historyShowAll=!historyShowAll;
+  historyToggleBtn.textContent=historyShowAll?'最新10件':'すべて表示';
+  renderHistory();
+}
+
+function formatHistoryDate(date){
+  const [y,m,d]=date.split('-').map(Number);
+  const dt=new Date(y,m-1,d);
+  const week=['日','月','火','水','木','金','土'][dt.getDay()];
+  return `${m}月${d}日（${week}）`
+}
+
+function formatHistoryMonth(monthKey){
+  const [y,m]=monthKey.split('-').map(Number);
+  return `${y}年${m}月`
+}
+
 function renderHistory(){
+  if(db){
+    const tx=db.transaction('foods','readonly'),req=tx.objectStore('foods').getAll();
+    req.onsuccess=()=>renderHistoryRows(req.result||[]);
+    req.onerror=()=>renderHistoryRows([]);
+  }else{
+    renderHistoryRows([]);
+  }
+}
+
+function addHistoryField(parent,label,value){
+  if(value===undefined||value===null||String(value).trim()==='')return;
+  const box=document.createElement('div');
+  box.className='history-field';
+
+  const l=document.createElement('span');
+  l.className='history-label';
+  l.textContent=label;
+
+  const v=document.createElement('span');
+  v.className='history-value';
+  v.textContent=value;
+
+  box.appendChild(l);
+  box.appendChild(v);
+  parent.appendChild(box);
+}
+
+function renderHistoryRows(foods){
   const dates=[];
   for(let i=0;i<localStorage.length;i++){
     const k=localStorage.key(i);
     if(k&&k.startsWith('daily:'))dates.push(k.slice(6));
   }
-  const unique=[...new Set(dates)].sort().reverse();
+
+  const foodCounts={};
+  foods.forEach(x=>{
+    if(!x.date)return;
+    dates.push(x.date);
+    foodCounts[x.date]=(foodCounts[x.date]||0)+1;
+  });
+
+  let unique=[...new Set(dates)].sort().reverse();
+  if(!historyShowAll)unique=unique.slice(0,10);
+
   historyList.innerHTML='';
-  if(!unique.length){historyList.innerHTML='<div class="meta">まだ履歴はありません。</div>';return}
+  if(!unique.length){
+    historyList.innerHTML='<div class="history-empty">まだ履歴はありません。</div>';
+    return
+  }
+
+  let currentMonth='';
+  let monthBlock=null;
+
   unique.forEach(date=>{
-    const d=getDaily(date),bits=[];
-    if(d.weight)bits.push(`体重 ${esc(d.weight)}kg`);
-    if(d.bpHigh||d.bpLow)bits.push(`血圧 ${esc(d.bpHigh||'-')}/${esc(d.bpLow||'-')}`);
-    if(d.caregiver?.name)bits.push(`世話人 ${esc(d.caregiver.name)}`);
-    if(d.nurse?.name)bits.push(`訪問看護 ${esc(d.nurse.name)}`);
-    const div=document.createElement('div');div.className='history-item';
-    div.innerHTML='<div class="item-main"><div class="item-title"></div><div class="meta"></div></div><button class="secondary smallbtn">開く</button>';
-    div.querySelector('.item-title').textContent=date;
-    div.querySelector('.meta').innerHTML=bits.length?bits.join('・'):'記録あり';
-    div.querySelector('button').onclick=()=>{
-      activeDate=date;viewDate.value=date;loadDate();window.scrollTo({top:0,behavior:'smooth'})
+    const monthKey=date.slice(0,7);
+
+    if(monthKey!==currentMonth){
+      currentMonth=monthKey;
+
+      monthBlock=document.createElement('div');
+      monthBlock.className='history-month';
+
+      const title=document.createElement('div');
+      title.className='history-month-title';
+      title.textContent=formatHistoryMonth(monthKey);
+
+      monthBlock.appendChild(title);
+      historyList.appendChild(monthBlock);
+    }
+
+    const d=getDaily(date);
+
+    const card=document.createElement('div');
+    card.className='history-item';
+
+    const top=document.createElement('div');
+    top.className='history-top';
+
+    const dateEl=document.createElement('div');
+    dateEl.className='history-date';
+    dateEl.textContent=formatHistoryDate(date);
+
+    const openBtn=document.createElement('button');
+    openBtn.className='secondary smallbtn';
+    openBtn.textContent='開く';
+    openBtn.onclick=()=>{
+      activeDate=date;
+      viewDate.value=date;
+      todoDate.value=date;
+      loadDate();
+      window.scrollTo({top:0,behavior:'smooth'})
     };
-    historyList.appendChild(div)
-  })
+
+    top.appendChild(dateEl);
+    top.appendChild(openBtn);
+    card.appendChild(top);
+
+    const summary=document.createElement('div');
+    summary.className='history-summary';
+
+    if(d.weight)addHistoryField(summary,'体重',`${d.weight} kg`);
+
+    if(d.bpHigh||d.bpLow||d.pulse){
+      let value='';
+      if(d.bpHigh||d.bpLow)value=`${d.bpHigh||'-'} / ${d.bpLow||'-'}`;
+      if(d.pulse)value+=(value?'　':'')+`脈 ${d.pulse}`;
+      addHistoryField(summary,'血圧・脈拍',value);
+    }
+
+    if(d.bowel){
+      addHistoryField(summary,'排便',d.bowel+(d.bowelCount?`・${d.bowelCount}回`:''));
+    }
+
+    const meds=[];
+    if(d.medMorning)meds.push('朝');
+    if(d.medNoon)meds.push('昼');
+    if(d.medEvening)meds.push('夕');
+    if(d.medBed)meds.push('寝る前');
+    if(meds.length)addHistoryField(summary,'服薬',meds.join('・'));
+
+    if(d.caregiver?.name)addHistoryField(summary,'世話人',d.caregiver.name);
+    if(d.nurse?.name)addHistoryField(summary,'訪問看護',d.nurse.name);
+    if(foodCounts[date])addHistoryField(summary,'食事',`${foodCounts[date]}件`);
+
+    if(!summary.children.length)addHistoryField(summary,'記録','記録あり');
+
+    card.appendChild(summary);
+
+    const memoLines=[];
+    if(d.memo)memoLines.push(`メモ：${d.memo}`);
+    if(d.caregiver?.memo)memoLines.push(`世話人メモ：${d.caregiver.memo}`);
+    if(d.nurse?.memo)memoLines.push(`訪問看護メモ：${d.nurse.memo}`);
+
+    if(memoLines.length){
+      const memoEl=document.createElement('div');
+      memoEl.className='history-memo';
+      memoEl.textContent=memoLines.join('\n');
+      card.appendChild(memoEl);
+    }
+
+    monthBlock.appendChild(card);
+  });
 }
 
 function load(){
